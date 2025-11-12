@@ -33,10 +33,15 @@ public:
         adjacency[b].emplace_back(a, w);
     }
 
-    void mark_hazard(const string& id, const string& reason) {
-        if (nodes.count(id) == 0) return;
-        nodes[id].is_hazard = true;
-        nodes[id].hazard_reason = reason;
+    void mark_hazard(const string& node_id, const string& reason = "Predicted Debris Intersection") {
+        // Marks a specific waypoint as a hazard to be avoided.
+        if (has_node(node_id)) {
+            nodes.at(node_id).is_hazard = true;
+            nodes.at(node_id).hazard_reason = reason;
+            cout << "--- COLLISION PREDICTED: Node " << node_id << " marked as HAZARD. Reason: " << reason << " ---" << endl;
+        } else {
+            cerr << "Error: Cannot mark hazard. Node " << node_id << " does not exist." << endl;
+        }
     }
 
     void print_nodes() const {
