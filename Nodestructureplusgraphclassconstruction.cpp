@@ -14,7 +14,7 @@ using namespace std;
 // Define a shorthand for coordinates for clarity
 using Position = tuple<double, double, double>;
 
-// --- 1. Graph and Node Setup (YOUR CONTRIBUTION STARTS HERE) ---
+// --- 1. Graph and Node Setup ---
 
 // COMMIT 2: Node Struct Implementation
 struct Node {
@@ -107,8 +107,50 @@ double heuristic(const Node& node, const Node& goal_node) {
 // A* function body is left as a placeholder for later commits
 using AStarEntry = pair<double, string>;
 
+// Replace the previous placeholder with this implementation
 pair<vector<string>, double> find_safe_path_astar(const OrbitalGraph& graph, const string& start_id, const string& goal_id) {
-    return {{"Function not fully implemented yet (Waiting for Commit 6/7)."}, 0.0};
+    // Sanity checks
+    if (!graph.has_node(start_id) || !graph.has_node(goal_id)) {
+        cerr << "Error: start or goal node does not exist in the graph.\n";
+        return {{}, 0.0};
+    }
+
+    const Node start_node = graph.get_node(start_id);
+    const Node goal_node  = graph.get_node(goal_id);
+
+    // --- Core A* data structures (Commit 6) ---
+    // g_score: cost from start to node (default = +inf)
+    unordered_map<string, double> g_score;
+    // f_score: g_score + heuristic estimate (default = +inf)
+    unordered_map<string, double> f_score;
+    // came_from: for path reconstruction (parent pointer)
+    unordered_map<string, string> came_from;
+
+    // Initialize scores to +infinity for all nodes in graph
+    for (const auto& p : graph.get_all_nodes()) {
+        const string& nid = p.first;
+        g_score[nid] = numeric_limits<double>::infinity();
+        f_score[nid] = numeric_limits<double>::infinity();
+        // came_from left empty / absent until we set a parent
+    }
+
+    // Min-heap (priority_queue) for the open set
+    // AStarEntry = pair<f_score, node_id>
+    using AStarEntry = pair<double, string>;
+    priority_queue<AStarEntry, vector<AStarEntry>, greater<AStarEntry>> open_set;
+
+    // Initialize start node
+    g_score[start_id] = 0.0;
+    f_score[start_id] = heuristic(start_node, goal_node);
+    open_set.push({f_score[start_id], start_id});
+
+    // Debug / confirmation output (safe, non-invasive)
+    cout << "[Commit 6] A* core setup initialized.\n";
+    cout << "  Start: " << start_id << " | g=" << g_score[start_id] << " | f=" << f_score[start_id] << "\n";
+    cout << "  Goal : " << goal_id << "\n";
+    cout << "  Open set size: " << open_set.size() << " (start pushed)\n";
+
+    return {{"A* core setup initialized (waiting for full traversal loop in Commit 7)."}, 0.0};
 }
 
 // --- 3. User Input Functions (TO BE ADDED LATER) ---
