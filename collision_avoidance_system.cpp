@@ -85,50 +85,107 @@ public:
 // --- 2. A* Search Algorithm (Placeholder) ---
 
 double heuristic(const Node& node, const Node& goal_node) {
+   /**
+     * Heuristic function h(n): Estimates the fuel cost (straight-line distance)
+     * from the current node to the goal node. Euclidean distance in 3D.
+     */
     double x1, y1, z1, x2, y2, z2;
     tie(x1, y1, z1) = node.pos;
     tie(x2, y2, z2) = goal_node.pos;
+
+    // Standard 3D Euclidean distance formula
     return sqrt(pow(x2 - x1, 2) + pow(y2 - y1, 2) + pow(z2 - z1, 2));
 }
 
+// Custom structure for the priority queue
+// The priority queue will store pairs of (f_score, node_id)
+// We use a custom comparator or negative cost trick to make it a min-heap
 using AStarEntry = pair<double, string>;
 
-pair<vector<string>, double> find_safe_path_astar(const OrbitalGraph& graph,const string& start_id,const string& goal_id) {
-
-    // Validate start and goal
-    if (!graph.has_node(start_id) || !graph.has_node(goal_id)) {
-        cerr << "Error: Start or Goal node does not exist in the graph.\n";
-        return {{}, 0.0};
+pair<vector<string>, double> find_safe_path_astar(const OrbitalGraph& graph, const string& start_id, const string& goal_id) {
+    /**
+     * Implements the A* search algorithm to find the minimum fuel cost path
+     * while avoiding all nodes marked as 'hazard'.
+     */
+    if (!graph.get_all_nodes().count(start_id) || !graph.get_all_nodes().count(goal_id)) {
+        return {{"Error: Start or Goal node not found."}, 0.0};
     }
 
     const Node& start_node = graph.get_node(start_id);
-    const Node& goal_node  = graph.get_node(goal_id);
+    const Node& goal_node = graph.get_node(goal_id);
 
-    // --- Step 1: Initialize data structures ---
-    unordered_map<string, double> g_score;
-    unordered_map<string, double> f_score;
-    unordered_map<string, string> came_from;
+    // g_score: actual cost from start to current node
+    map<string, double> g_score;
+    // f_score: estimated total cost (g_score + heuristic)
+    map<string, double> f_score;
+    // came_from: Tracks the optimal previous node for path reconstruction
+    map<string, string> came_from;
 
-    // Initialize all scores as infinity
-    for (const auto& p : graph.get_all_nodes()) {
-        const string& node_id = p.first;
-        g_score[node_id] = numeric_limits<double>::infinity();
-        f_score[node_id] = numeric_limits<double>::infinity();
+    // Initialize scores to infinity
+    for (const auto& pair : graph.get_all_nodes()) {
+        g_score[pair.first] = numeric_limits<double>::infinity();
+        f_score[pair.first] = numeric_limits<double>::infinity();
     }
 
-    using AStarEntry = pair<double, string>;
-    priority_queue<AStarEntry, vector<AStarEntry>, greater<AStarEntry>> open_set;
-
-    // --- Step 2: Initialize start node values ---
-    g_score[start_id] = 0.0;
+    g_score[start_id] = 0;
     f_score[start_id] = heuristic(start_node, goal_node);
+
+    // Priority Queue (Min-Heap): Stores (f_score, node_id)
+    // std::priority_queue is a Max-Heap by default. We push the NEGATIVE f_score
+    // to simulate a Min-Heap (largest negative is smallest positive).
+    priority_queue<AStarEntry, vector<AStarEntry>, greater<AStarEntry>> open_set;
     open_set.push({f_score[start_id], start_id});
 
-    // --- Step 3: Debug info for verification ---
-    cout << "Start Node: " << start_id << " | g=" << g_score[start_id]
-         << " | f=" << f_score[start_id] << endl;
-    cout << "Goal Node : " << goal_id << endl;
-    return {{""}, 0.0};
+    while (!open_set.empty()) {
+        double current_f_score = open_set.top().first;
+        string current_id = open_set.top().second;
+        open_set.pop();
+
+        // 1. Goal Check
+        if (current_id == goal_id) {
+            // Path found! Reconstruct and return it.
+            vector<string> path;
+            double total_cost = g_score[current_id];
+            string current = current_id;
+            while (current != start_id) {
+                path.push_back(current);
+                current = came_from[current];
+            }
+            path.push_back(start_id);
+            reverse(path.begin(), path.end());
+            return {path, total_cost};
+        }
+
+        // 2. Explore Neighbors
+        const vector<Edge>& neighbors = graph.get_neighbors(current_id);
+        for (const auto& edge : neighbors) {
+            string neighbor_id = edge.target_id;
+            double edge_cost = edge.cost;
+
+            const Node& neighbor_node = graph.get_node(neighbor_id);
+
+            // COLLISION AVOIDANCE LOGIC: Skip hazard nodes
+            if (neighbor_node.is_hazard) {
+                continue;
+            }
+
+            // Calculate tentative g_score
+            double tentative_g_score = g_score[current_id] + edge_cost;
+
+            if (tentative_g_score < g_score[neighbor_id]) {
+                // This path is better. Record it.
+                came_from[neighbor_id] = current_id;
+                g_score[neighbor_id] = tentative_g_score;
+                f_score[neighbor_id] = tentative_g_score + heuristic(neighbor_node, goal_node);
+
+                // Add or update the neighbor in the priority queue
+                open_set.push({f_score[neighbor_id], neighbor_id});
+            }
+        }
+    }
+
+    // If the loop finishes without finding the goal
+    return {{"No path found (Hazard may block all routes)."}, 0.0};
 }
 
 
