@@ -93,11 +93,44 @@ double heuristic(const Node& node, const Node& goal_node) {
 
 using AStarEntry = pair<double, string>;
 
-pair<vector<string>, double> find_safe_path_astar(const OrbitalGraph& graph,
-                                                  const string& start_id,
-                                                  const string& goal_id) {
-    return {{"Function not fully implemented yet (Waiting for Commit 6/7)."}, 0.0};
+pair<vector<string>, double> find_safe_path_astar(const OrbitalGraph& graph,const string& start_id,const string& goal_id) {
+
+    // Validate start and goal
+    if (!graph.has_node(start_id) || !graph.has_node(goal_id)) {
+        cerr << "Error: Start or Goal node does not exist in the graph.\n";
+        return {{}, 0.0};
+    }
+
+    const Node& start_node = graph.get_node(start_id);
+    const Node& goal_node  = graph.get_node(goal_id);
+
+    // --- Step 1: Initialize data structures ---
+    unordered_map<string, double> g_score;
+    unordered_map<string, double> f_score;
+    unordered_map<string, string> came_from;
+
+    // Initialize all scores as infinity
+    for (const auto& p : graph.get_all_nodes()) {
+        const string& node_id = p.first;
+        g_score[node_id] = numeric_limits<double>::infinity();
+        f_score[node_id] = numeric_limits<double>::infinity();
+    }
+
+    using AStarEntry = pair<double, string>;
+    priority_queue<AStarEntry, vector<AStarEntry>, greater<AStarEntry>> open_set;
+
+    // --- Step 2: Initialize start node values ---
+    g_score[start_id] = 0.0;
+    f_score[start_id] = heuristic(start_node, goal_node);
+    open_set.push({f_score[start_id], start_id});
+
+    // --- Step 3: Debug info for verification ---
+    cout << "Start Node: " << start_id << " | g=" << g_score[start_id]
+         << " | f=" << f_score[start_id] << endl;
+    cout << "Goal Node : " << goal_id << endl;
+    return {{""}, 0.0};
 }
+
 
 // --- 3. User Interaction (Placeholder for now) ---
 
