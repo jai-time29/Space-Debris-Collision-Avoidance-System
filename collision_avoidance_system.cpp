@@ -14,30 +14,37 @@ using namespace std;
 // Define a shorthand for coordinates for clarity
 using Position = tuple<double, double, double>;
 
-// --- 1. Graph and Node Setup ---
+// --- 1. Graph and Node Setup (YOUR CONTRIBUTION STARTS HERE) ---
 
+// COMMIT 2: Node Struct Implementation
 struct Node {
     string id;
     Position pos; // (X, Y, Z) coordinates for heuristic calculation
     bool is_hazard;
     string hazard_reason;
 
+    // Constructor
     Node(const string& node_id, double x, double y, double z)
         : id(node_id), pos(make_tuple(x, y, z)), is_hazard(false), hazard_reason("") {}
 };
 
+// COMMIT 2: Edge Structure
 struct Edge {
     string target_id;
     double cost; // Represents fuel consumption
 };
 
+// COMMIT 3: OrbitalGraph Class and Construction
 class OrbitalGraph {
 private:
+    // Node Map: {node_id: Node_object}
     map<string, Node> nodes;
+    // Adjacency List: {node_id: [Edge1, Edge2, ...]}
     map<string, vector<Edge>> adj;
 
 public:
     void add_node(const Node& node) {
+        // Adds a new waypoint to the graph
         nodes.insert({node.id, node});
     }
 
@@ -46,20 +53,21 @@ public:
     }
 
     void add_edge(const string& id1, const string& id2, double cost) {
+        // Adds a bidirectional edge (path) between two nodes with fuel cost.
         if (has_node(id1) && has_node(id2)) {
             adj[id1].push_back({id2, cost});
-            adj[id2].push_back({id1, cost});
+            adj[id2].push_back({id1, cost}); // Symmetrical cost
         } else {
             cerr << "Warning: Could not create edge. One or both nodes do not exist." << endl;
         }
     }
 
     void mark_hazard(const string& node_id, const string& reason = "Predicted Debris Intersection") {
+        // Marks a specific waypoint as a hazard to be avoided by A*
         if (has_node(node_id)) {
             nodes.at(node_id).is_hazard = true;
             nodes.at(node_id).hazard_reason = reason;
-            cout << "--- COLLISION PREDICTED: Node " << node_id
-                 << " marked as HAZARD. Reason: " << reason << " ---" << endl;
+            cout << "--- COLLISION PREDICTED: Node " << node_id << " marked as HAZARD. Reason: " << reason << " ---" << endl;
         } else {
             cerr << "Error: Cannot mark hazard. Node " << node_id << " does not exist." << endl;
         }
@@ -74,6 +82,7 @@ public:
     }
 
     const vector<Edge>& get_neighbors(const string& id) const {
+        // Returns the list of neighboring Edges for a given node ID.
         if (adj.count(id)) {
             return adj.at(id);
         }
@@ -82,162 +91,83 @@ public:
     }
 };
 
-// --- 2. A* Search Algorithm (Placeholder) ---
+// --- 2. A* Search Algorithm (TO BE ADDED LATER) ---
 
 double heuristic(const Node& node, const Node& goal_node) {
-   /**
-     * Heuristic function h(n): Estimates the fuel cost (straight-line distance)
-     * from the current node to the goal node. Euclidean distance in 3D.
+    /**
+     * Placeholder: Calculates 3D Euclidean distance.
+     * Implementation relies on Commit 5.
      */
     double x1, y1, z1, x2, y2, z2;
     tie(x1, y1, z1) = node.pos;
     tie(x2, y2, z2) = goal_node.pos;
-
-    // Standard 3D Euclidean distance formula
     return sqrt(pow(x2 - x1, 2) + pow(y2 - y1, 2) + pow(z2 - z1, 2));
 }
 
-// Custom structure for the priority queue
-// The priority queue will store pairs of (f_score, node_id)
-// We use a custom comparator or negative cost trick to make it a min-heap
+// A* function body is left as a placeholder for later commits
 using AStarEntry = pair<double, string>;
 
-pair<vector<string>, double> find_safe_path_astar(const OrbitalGraph& graph, const string& start_id, const string& goal_id) {
-    /**
-     * Implements the A* search algorithm to find the minimum fuel cost path
-     * while avoiding all nodes marked as 'hazard'.
-     */
-    if (!graph.get_all_nodes().count(start_id) || !graph.get_all_nodes().count(goal_id)) {
-        return {{"Error: Start or Goal node not found."}, 0.0};
-    }
-
-    const Node& start_node = graph.get_node(start_id);
-    const Node& goal_node = graph.get_node(goal_id);
-
-    // g_score: actual cost from start to current node
-    map<string, double> g_score;
-    // f_score: estimated total cost (g_score + heuristic)
-    map<string, double> f_score;
-    // came_from: Tracks the optimal previous node for path reconstruction
-    map<string, string> came_from;
-
-    // Initialize scores to infinity
-    for (const auto& pair : graph.get_all_nodes()) {
-        g_score[pair.first] = numeric_limits<double>::infinity();
-        f_score[pair.first] = numeric_limits<double>::infinity();
-    }
-
-    g_score[start_id] = 0;
-    f_score[start_id] = heuristic(start_node, goal_node);
-
-    // Priority Queue (Min-Heap): Stores (f_score, node_id)
-    // std::priority_queue is a Max-Heap by default. We push the NEGATIVE f_score
-    // to simulate a Min-Heap (largest negative is smallest positive).
-    priority_queue<AStarEntry, vector<AStarEntry>, greater<AStarEntry>> open_set;
-    open_set.push({f_score[start_id], start_id});
-
-    while (!open_set.empty()) {
-        double current_f_score = open_set.top().first;
-        string current_id = open_set.top().second;
-        open_set.pop();
-
-        // 1. Goal Check
-        if (current_id == goal_id) {
-            // Path found! Reconstruct and return it.
-            vector<string> path;
-            double total_cost = g_score[current_id];
-            string current = current_id;
-            while (current != start_id) {
-                path.push_back(current);
-                current = came_from[current];
-            }
-            path.push_back(start_id);
-            reverse(path.begin(), path.end());
-            return {path, total_cost};
-        }
-
-        // 2. Explore Neighbors
-        const vector<Edge>& neighbors = graph.get_neighbors(current_id);
-        for (const auto& edge : neighbors) {
-            string neighbor_id = edge.target_id;
-            double edge_cost = edge.cost;
-
-            const Node& neighbor_node = graph.get_node(neighbor_id);
-
-            // COLLISION AVOIDANCE LOGIC: Skip hazard nodes
-            if (neighbor_node.is_hazard) {
-                continue;
-            }
-
-            // Calculate tentative g_score
-            double tentative_g_score = g_score[current_id] + edge_cost;
-
-            if (tentative_g_score < g_score[neighbor_id]) {
-                // This path is better. Record it.
-                came_from[neighbor_id] = current_id;
-                g_score[neighbor_id] = tentative_g_score;
-                f_score[neighbor_id] = tentative_g_score + heuristic(neighbor_node, goal_node);
-
-                // Add or update the neighbor in the priority queue
-                open_set.push({f_score[neighbor_id], neighbor_id});
-            }
-        }
-    }
-
-    // If the loop finishes without finding the goal
-    return {{"No path found (Hazard may block all routes)."}, 0.0};
+pair<vector<string>, double> find_safe_path_astar(
+        const OrbitalGraph& graph,
+        const string& start,
+        const string& goal)
+{
+    return {{"A* not implemented yet (Commit 9)."}, 0.0};
 }
 
+// --- 3. User Input Functions (TO BE ADDED LATER) ---
 
-// --- 3. User Interaction (Placeholder for now) ---
 
-void display_current_nodes(const OrbitalGraph& graph) {
-    cout << "\nExisting Nodes (Waypoints): ";
-    bool first = true;
-    for (const auto& pair : graph.get_all_nodes()) {
-        if (!first) cout << ", ";
-        cout << pair.first;
-        first = false;
-    }
-    cout << endl;
+
+
+void setup_and_run_demo() {
+    cout << "\n===== SPACE DEBRIS COLLISION AVOIDANCE — DEMO (Commit 8) =====\n";
+
+    OrbitalGraph graph;
+
+    graph.add_node(Node("A", 0, 0, 0));
+    graph.add_node(Node("B", 1, 0, 0));
+    graph.add_node(Node("C", 2, 0, 0));
+    graph.add_node(Node("D", 3, 0, 0));
+    graph.add_node(Node("E", 0, 1, 0));
+    graph.add_node(Node("F", 1, 1, 0));
+    graph.add_node(Node("G", 2, 1, 0));
+    graph.add_node(Node("H", 3, 1, 0));
+
+    cout << "✔️  Added nodes A–H\n";
+
+    graph.add_edge("A", "B", 1.0);
+    graph.add_edge("B", "C", 1.0);
+    graph.add_edge("C", "D", 1.0);
+    graph.add_edge("E", "F", 1.0);
+    graph.add_edge("F", "G", 1.0);
+    graph.add_edge("G", "H", 1.0);
+    graph.add_edge("A", "E", 1.4);
+    graph.add_edge("B", "F", 1.4);
+    graph.add_edge("C", "G", 1.4);
+    graph.add_edge("D", "H", 1.4);
+
+    cout << "✔️  Added edges\n";
+
+    graph.mark_hazard("C", "High-Density Debris Region");
+    graph.mark_hazard("G", "Severe Orbital Fragment Field");
+
+    string start = "A";
+    string goal = "H";
+
+    cout << "\nStart Node : " << start;
+    cout << "\nGoal Node  : " << goal << endl;
+
+    auto result = find_safe_path_astar(graph, start, goal);
+
+    cout << "\nA* Output: " << result.first[0] << endl;
 }
 
-void read_nodes(OrbitalGraph& graph) {
-    cout << "\n[Placeholder for Node reading logic]" << endl;
-}
-
-void read_edges(OrbitalGraph& graph) {
-    cout << "\n[Placeholder for Edge reading logic]" << endl;
-}
-
-void read_scenario_parameters(OrbitalGraph& graph, string& start_id, string& goal_id) {
-    cout << "\n[Placeholder for Scenario reading logic]" << endl;
-    start_id = "A";
-    goal_id = "B";
-    graph.mark_hazard("C");
-}
-
-void run_interactive_demo() {
-    cout << "--- Graph-Based Space Debris Collision Avoidance System ---" << endl;
-
-    OrbitalGraph orbit_graph;
-    string start_id, goal_id;
-
-    orbit_graph.add_node(Node("A", 0, 0, 0));
-    orbit_graph.add_node(Node("B", 1, 1, 1));
-    orbit_graph.add_node(Node("C", 2, 2, 2));
-    orbit_graph.add_edge("A", "B", 1.0);
-
-    read_nodes(orbit_graph);
-    read_edges(orbit_graph);
-    read_scenario_parameters(orbit_graph, start_id, goal_id);
-
-    auto result = find_safe_path_astar(orbit_graph, start_id, goal_id);
-    cout << "\nSimulation initialized. A* result: " << result.first[0] << endl;
-}
 
 int main() {
-    run_interactive_demo();
+    // run_interactive_demo();
+    setup_and_run_demo();
     return 0;
 }
+
 
